@@ -1,3 +1,6 @@
+// ASCI CODES ALL FROM HERE
+// https://www.cs.cmu.edu/~pattis/15-1XX/common/handouts/ascii.html
+
 #include <iostream>
 #include <thread>
 #include <string>
@@ -5,17 +8,11 @@
 #include <algorithm>
 #include <ctime>
 
+#define START_CHAR 33 // !
+#define END_CHAR 127 // ~
+
 using namespace std;
 
-struct thrd {
-	thread t;
-	bool inUse = false;
-
-	void join() {
-		cout << "We'll delete this";
-		//t.join();
-	}
-};
 
 class Lock {
 public:
@@ -36,11 +33,11 @@ private:
 }*/
 
 void incrementStringAtCaps(string* attempt) {
-	for (int i = 0; i < attempt->length(); i++) {
-		if (attempt->at(i) >= 126) {
+	for (size_t i = 0; i < attempt->length(); i++) {
+		if (attempt->at(i) >= END_CHAR) {
 			//just to make sure we dont go out of the bounds of the string
 			if (i < attempt->length() - 1) {
-				attempt->at(i) = 48;
+				attempt->at(i) = START_CHAR;
 				attempt->at(i + 1)++;
 			}
 		}
@@ -48,16 +45,13 @@ void incrementStringAtCaps(string* attempt) {
 	attempt->front()++;
 }
 
-// ASCI CODES ALL FROM HERE
-// https://www.cs.cmu.edu/~pattis/15-1XX/common/handouts/ascii.html
-// 33 is !, first ascii char
 void crack(Lock* lock, int length) {
 	bool foundPassword = false;
 	string attempt = "";
-	attempt.insert(0, length, 33);
+	attempt.insert(0, length, START_CHAR);
 	
-	//if the last letter is z, it means we've ran out of iterations
-	while (attempt.back() < 127) {
+	//if the last letter is ~, it means we've ran out of iterations
+	while (attempt.back() < END_CHAR) {
 		if (lock->tryCode(attempt)) {
 			cout << "Found it!" << endl;
 			foundPassword = true;
@@ -68,21 +62,39 @@ void crack(Lock* lock, int length) {
 		}
 	}
 
-	if (foundPassword)
+	if (foundPassword) {
 		cout << "Password found, it is: " << attempt << endl;
-	else
-		cout << "Unable to match the password." << endl;
+		// stop all threads
+	}
+	else {
+		// terminate this one thread
+	}
 }
+
+struct thrd {
+	thread t;
+	thrd(int length, Lock* lock) {
+		t = thread(crack, lock, length);
+	}
+
+	void join() {
+		t.join();
+	}
+};
 
 class Threadpool {
 public:
 	Threadpool(Lock* lock, int size) : _lock(lock) {
-		_pool.resize(size);
-		fill(_pool.begin(), _pool.end(), new thrd());
+		//_pool.resize(size);
+		//fill(_pool.begin(), _pool.end(), new thrd(3, lock));
+		for (int i = 1; i <= size; i++) {
+			_pool.push_back(new thrd(i, lock));
+		}
+
+		for_each(_pool.begin(), _pool.end(), bind(&thrd::join, placeholders::_1));
 	}
 	~Threadpool() {
 		cout << "delet this .O--r " << endl;
-		for_each(_pool.begin(), _pool.end(), bind(&thrd::join, placeholders::_1));
 		_pool.clear();
 	}
 private:
@@ -92,13 +104,9 @@ private:
 
 int main() {
 	//start time
-	clock_t start;
-	start = clock();
+	 clock_t start = clock();
 	//----------------------------------------------------------------------------------------------------------------
 	
-	//thread t1(func, "beep");
-	//t1.join();
-
 	// -- easy
 	Lock lock = Lock("C@m");
 	// -- medium
@@ -106,13 +114,10 @@ int main() {
 	// -- hard
 	//Lock lock = Lock("kL3unCZw5VVx");
 
-	//Threadpool* tp = new Threadpool(&lock, 1);
+	cout << "Trying to find password..." << endl;
+	Threadpool* tp = new Threadpool(&lock, 4);
 	//delete tp;
 
-	cout << "Trying to find password..." << endl;
-
-	crack(&lock, 3);
-	
 	//----------------------------------------------------------------------------------------------------------------
 	//give us the time
 	double duration = (clock() - start) / (double)CLOCKS_PER_SEC;
